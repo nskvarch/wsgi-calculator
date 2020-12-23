@@ -40,6 +40,34 @@ To submit your homework:
 
 
 """
+import traceback
+
+
+def home():
+    """renders a home page with brief instructions for use"""
+    page = """
+<h1>A simple Calculator</h1>
+How to use:
+<ul>
+    <li>For Addition:</li>
+        <ul>
+            <li>Enter the URL into the browser with /add/[number 1]/[number 2]</li>
+        </ul>
+    <li>For Subtraction:</li>
+        <ul>
+            <li>Enter the URL into the browser with /subtract/[number 1]/[number 2]</li>
+        </ul>
+    <li>For Multiplication:</li>
+        <ul>
+            <li>Enter the URL into the browser with /multiply/[number 1]/[number 2]</li>
+        </ul>
+    <li>For Division:</li>
+        <ul>
+            <li>Enter the URL into the browser with /divide/[number 1]/[number 2]</li>
+        </ul>
+</ul>
+"""
+    return page
 
 
 def add(*args):
@@ -47,11 +75,47 @@ def add(*args):
 
     # TODO: Fill sum with the correct value, based on the
     # args provided.
-    sum = "0"
+    add_sum = 0
+    for arg in args:
+        add_sum += int(arg)
 
-    return sum
+    return str(add_sum)
 
 # TODO: Add functions for handling more arithmetic operations.
+
+
+def subtract(*args):
+    difference = 0
+    first_num = True
+    for arg in args:
+        if first_num:
+            difference = int(arg)
+            first_num = False
+        else:
+            difference = difference - int(arg)
+
+    return str(difference)
+
+
+def multiply(*args):
+    product = 1
+    for arg in args:
+        product *= int(arg)
+    return str(product)
+
+
+def divide(*args):
+    dividend = 0
+    first_num = True
+    for arg in args:
+        if first_num:
+            dividend = int(arg)
+            first_num = False
+        else:
+            dividend = dividend // int(arg)
+
+    return str(dividend)
+
 
 def resolve_path(path):
     """
@@ -63,10 +127,28 @@ def resolve_path(path):
     # examples provide the correct *syntax*, but you should
     # determine the actual values of func and args using the
     # path.
-    func = add
-    args = ['25', '32']
+    funcs = {
+        '': home,
+        'add': add,
+        'subtract': subtract,
+        'multiply': multiply,
+        'divide': divide
+    }
+
+    path = path.strip('/').split('/')
+
+    func_name = path[0]
+    args = path[1:]
+
+    try:
+        func = funcs[func_name]
+    except KeyError:
+        raise NameError
+    except ZeroDivisionError:
+        raise ZeroDivisionError
 
     return func, args
+
 
 def application(environ, start_response):
     # TODO: Your application code from the book database
@@ -76,9 +158,33 @@ def application(environ, start_response):
     #
     # TODO (bonus): Add error handling for a user attempting
     # to divide by zero.
-    pass
+    headers = [("Content-type", "text/html")]
+    try:
+        path = environ.get("PATH_INFO", None)
+        if path is None:
+            raise NameError
+        func, args = resolve_path(path)
+        body = func(*args)
+        status = "200 OK"
+    except NameError:
+        status = "404 Not Found"
+        body = "<h1> Not Found</h1>"
+    except ZeroDivisionError:
+        status = "400 Bad Request"
+        body = "<h1>Cannot Divide by Zero</h1>"
+    except Exception:
+        status = "500 Internal Server Error"
+        body = "<h1>Internal Server Error</h1>"
+        print(traceback.format_exc())
+    finally:
+        headers.append(("content-length", str(len(body))))
+        start_response(status, headers)
+        return [body.encode("utf8")]
+
 
 if __name__ == '__main__':
     # TODO: Insert the same boilerplate wsgiref simple
     # server creation that you used in the book database.
-    pass
+    from wsgiref.simple_server import make_server
+    srv = make_server('localhost', 8080, application)
+    srv.serve_forever()
